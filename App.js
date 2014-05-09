@@ -5,6 +5,7 @@ Ext.define('CustomApp', {
             { xtype: 'container', itemId: 'selector_box', padding: 15, layout: { type:'hbox' }, defaults: { padding: 15 }, 
                 items: [ 
                     { xtype: 'container', itemId: 'hide_accepted_box'}, 
+                    { xtype: 'container', itemId: 'hide_intra_team_dependencies_box'},
                     { xtype: 'container', itemId: 'hide_epic_box'}, 
                     { xtype: 'container', itemId: 'tag_box' },
                     { xtype: 'container', itemId: 'tag_exe_box', layout: { type: 'vbox' } },
@@ -41,6 +42,7 @@ Ext.define('CustomApp', {
     _addSelectors: function() {
         this._addShowBySchedule();
         this._addAcceptedCheckbox();
+        this._addIntraTeamDependenciesCheckbox();
         this._addEpicCheckbox();
         this._addTagPicker();
     },
@@ -109,6 +111,34 @@ Ext.define('CustomApp', {
                     }
                 },
                 scope: this
+            }
+        });
+    },
+    _addIntraTeamDependenciesCheckbox: function() {
+        var me = this;
+        me.hide_intra_team_dependencies = true;
+        me.down('#hide_intra_team_dependencies_box').add({
+            xtype: 'checkbox',
+            stateId: 'pxs.dependency.intrateam',
+            stateful: true,
+            stateEvents: ['change'],
+            getState: function() {
+                return { value: this.getValue() };
+            },
+            applyState: function(state) {
+                if ( state ) {
+                    this.setValue(state.value);
+                }
+            },
+            fieldLabel: 'Hide intra-team dependencies?',
+            labelAlign: "right",
+            checked: true,
+            listeners: {
+                change: function( cb, newValue ) {
+                    me.hide_intra_team_dependencies = newValue;
+                    me._getDependencies();
+                },
+                scope: me
             }
         });
     },
@@ -642,18 +672,22 @@ Ext.define('CustomApp', {
                 item.other_name =  me._getLinkedName(other);
                 item.other_blocked = other.Blocked;
                 item.other_schedule_state = other.ScheduleState;
-                var in_open_project = true;
+                var in_valid_project = true;
                 if ( other.Project ) {
                     if ( this.project_hash[ other.Project ] ) {
                         item.other_project = this.project_hash[other.Project].Name;
+                        if ( me.hide_intra_team_dependencies && item.project == item.other_project ) {
+                            // this.log( [ "Removed because in the same project" ] );
+                            in_valid_project = false;
+                        }
                     } else {
                         item.other_project = "Unknown " + other.Project;
                         //this.log( [ "Removed because in a closed project: " + other.Name ] );
-                        in_open_project = false;
+                        in_valid_project = false;
                     }
                 }
                 
-                if ( in_open_project ) {
+                if ( in_valid_project ) {
                     if ( other.children ) {
                         var total_kids = other.children.length;
                         var scheduled_kids = other.scheduled_children.length;
